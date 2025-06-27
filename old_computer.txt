@@ -1,0 +1,19 @@
+Summary
+		Operating System
+			Windows 11 Pro 64-bit
+		CPU
+			Intel Core i5 4300M @ 2.60GHz	56 °C
+			Haswell 22nm Technology
+		RAM
+			4.00GB Dual-Channel DDR3 @ 799MHz (11-11-11-28)
+		Motherboard
+			LENOVO 20AWS0KN01 (CPU Socket - U3E1)
+		Graphics
+			LCD 1366x768 (1366x768@60Hz)
+			Intel HD Graphics 4600 (Lenovo)
+		Storage
+			119GB SAMSUNG MZ7PD128HCFV-000H1 (SATA (SSD))	38 °C
+		Optical Drives
+			MATSHITA DVD-RAM UJ8E2
+		Audio
+			Realtek High Definition Audio

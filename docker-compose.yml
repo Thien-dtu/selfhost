@@ -1,0 +1,69 @@
+services:
+
+  postgres:
+    image: postgres:17
+    user: "1000:1000"
+    container_name: postgres
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=shared_db
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - /mnt/g/selfhost/data/postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - selfnet
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d shared_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.60'
+          memory: 1G
+
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    environment:
+      - DATABASE_URL=postgres://admin:${POSTGRES_PASSWORD}@postgres:5432/shared_db
+      - ADMIN_TOKEN=${VAULTWARDEN_ADMIN_TOKEN}
+      - WEBSOCKET_ENABLED=true
+      - SIGNUPS_ALLOWED=true
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - /mnt/g/selfhost/data/vaultwarden:/data:rw
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    networks:
+      - selfnet
+    deploy:
+      resources:
+        limits:
+          cpus: '0.10'
+          memory: 128M
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate run
+    restart: unless-stopped
+    networks:
+      - selfnet
+    deploy:
+      resources:
+        limits:
+          cpus: '0.10'
+          memory: 128M
+
+networks:
+  selfnet:
+    driver: bridge

@@ -1,0 +1,312 @@
+version: "3.9"
+
+services:
+  duckdns:
+    image: linuxserver/duckdns
+    container_name: duckdns
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ}
+      - SUBDOMAINS=${DUCKDNS_SUBDOMAINS}
+      - TOKEN=${DUCKDNS_TOKEN}
+    restart: unless-stopped
+    networks:
+      - selfnet
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=${TZ}
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=86400
+    networks:
+      - selfnet
+
+  dashy:
+    image: lissy93/dashy:latest
+    container_name: dashy
+    restart: unless-stopped
+    ports:
+      - "4000:8080"
+    volumes:
+      - ./data/dashy/conf.yml:/app/public/conf.yml
+    environment:
+      - NODE_ENV=production
+    networks:
+      - selfnet
+
+  npm:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: npm
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "81:81"
+      - "443:443"
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ./data/npm/data:/data
+      - ./data/npm/letsencrypt:/etc/letsencrypt
+    networks:
+      - selfnet
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data/portainer:/data
+    networks:
+      - selfnet
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    container_name: uptime-kuma
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./data/uptime-kuma:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - selfnet
+
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./data/vaultwarden:/data
+    networks:
+      - selfnet
+
+  jellyfin:
+    image: jellyfin/jellyfin
+    container_name: jellyfin
+    restart: unless-stopped
+    ports:
+      - "8096:8096"
+    volumes:
+      - ./data/jellyfin/config:/config
+      - ./data/jellyfin/cache:/cache
+      - ./media:/media
+    environment:
+      - TZ=${TZ}
+    networks:
+      - selfnet
+
+  nextcloud:
+    image: nextcloud
+    container_name: nextcloud
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    volumes:
+      - ./data/nextcloud:/var/www/html
+    environment:
+      - MYSQL_HOST=nextcloud_db
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+      - MYSQL_PASSWORD=${NEXTCLOUD_MYSQL_PASSWORD}
+    depends_on:
+      - nextcloud_db
+    networks:
+      - selfnet
+
+  nextcloud_db:
+    image: mariadb
+    container_name: nextcloud_db
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+      - MYSQL_PASSWORD=${NEXTCLOUD_MYSQL_PASSWORD}
+    volumes:
+      - ./data/nextcloud_db:/var/lib/mysql
+    networks:
+      - selfnet
+
+  adguardhome:
+    image: adguard/adguardhome
+    container_name: adguardhome
+    restart: unless-stopped
+    ports:
+      - "53:53/udp"
+      - "53:53/tcp"
+      - "3000:3000"
+    volumes:
+      - ./data/adguard/work:/opt/adguardhome/work
+      - ./data/adguard/conf:/opt/adguardhome/conf
+    networks:
+      - selfnet
+
+  speedtest-tracker:
+    image: lscr.io/linuxserver/speedtest-tracker:latest
+    container_name: speedtest-tracker
+    restart: unless-stopped
+    ports:
+      - "8765:80"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - DB_CONNECTION=mysql
+      - DB_HOST=speedtest-db
+      - DB_PORT=3306
+      - DB_DATABASE=speedtest
+      - DB_USERNAME=speedtest
+      - DB_PASSWORD=${SPEEDTEST_DB_PASS}
+      - APP_KEY=base64:Ax7BJcjgcZKHVZiRGUrnXzRUihd+tQELuYPvusRY86A=
+      - TZ=${TZ}
+      - SPEEDTEST_SCHEDULE=*/30 * * * *
+      - PRUNE_RESULTS_OLDER_THAN=60
+    volumes:
+      - ./data/speedtest-tracker:/config
+    depends_on:
+      - speedtest-db
+    networks:
+      - selfnet
+
+  speedtest-db:
+    image: mariadb
+    container_name: speedtest-db
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=${SPEEDTEST_DB_PASS}
+      - MYSQL_DATABASE=speedtest
+      - MYSQL_USER=speedtest
+      - MYSQL_PASSWORD=${SPEEDTEST_DB_PASS}
+    volumes:
+      - ./data/speedtest-db:/var/lib/mysql
+    networks:
+      - selfnet
+
+  bookstack:
+    image: lscr.io/linuxserver/bookstack:latest
+    container_name: bookstack
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - APP_URL=http://localhost:6875
+      - APP_KEY=base64:4N/jr/8Vk/Y6CnYnwq50WWn81jjhxJkq0Tr267ckeFQ=
+      - DB_HOST=bookstack_db
+      - DB_PORT=3306
+      - DB_DATABASE=bookstackapp
+      - DB_USERNAME=bookstack
+      - DB_PASSWORD=${BOOKSTACK_DB_PASS}
+
+    volumes:
+      - ./data/bookstack:/config
+    depends_on:
+      - bookstack_db
+    ports:
+      - "6875:80"
+    networks:
+      - selfnet
+
+  bookstack_db:
+    image: lscr.io/linuxserver/mariadb:latest
+    container_name: bookstack_db
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - TZ=${TZ}
+      - MYSQL_DATABASE=bookstackapp
+      - MYSQL_USER=bookstack
+      - MYSQL_PASSWORD=${BOOKSTACK_DB_PASS}
+    volumes:
+      - ./data/bookstack_db:/config
+    networks:
+      - selfnet
+
+  paperless:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    container_name: paperless
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data/paperless/data:/usr/src/paperless/data
+      - ./media/paperless/media:/usr/src/paperless/media
+      - ./media/paperless/export:/usr/src/paperless/export
+      - ./media/paperless/consume:/usr/src/paperless/consume
+    environment:
+      - PAPERLESS_URL=https://paperless.thienpro.duckdns.org
+      - PAPERLESS_TIME_ZONE=${TZ}
+      - PAPERLESS_ADMIN_USER=admin
+      - PAPERLESS_ADMIN_PASSWORD=${PAPERLESS_ADMIN_PASSWORD}
+      - PAPERLESS_DBHOST=paperless_db
+      - PAPERLESS_DBNAME=paperless
+      - PAPERLESS_DBUSER=paperless
+      - PAPERLESS_DBPASS=${PAPERLESS_DB_PASS}
+    depends_on:
+      - paperless_db
+    networks:
+      - selfnet
+
+  paperless_db:
+    image: mariadb
+    container_name: paperless_db
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=${PAPERLESS_DB_PASS}
+      - MYSQL_DATABASE=paperless
+      - MYSQL_USER=paperless
+      - MYSQL_PASSWORD=${PAPERLESS_DB_PASS}
+    volumes:
+      - ./data/paperless_db:/var/lib/mysql
+    networks:
+      - selfnet
+
+networks:
+  selfnet:
+    driver: bridge
+
+
+
+
+
+
+
+
+
+
+  # nextcloud:
+  #   image: nextcloud:latest
+  #   container_name: nextcloud
+  #   environment:
+  #     - POSTGRES_HOST=postgres
+  #     - POSTGRES_DB=nextcloud_db
+  #     - POSTGRES_USER=admin
+  #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+  #     - NEXTCLOUD_ADMIN_USER=admin
+  #     - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD}
+  #     - NEXTCLOUD_TRUSTED_DOMAINS=buiducthien.store nextcloud.buiducthien.store
+  #     - PUID=${PUID}
+  #     - PGID=${PGID}
+  #   volumes:
+  #     - /mnt/g/selfhost/data/nextcloud/html:/var/www/html
+  #   depends_on:
+  #     - postgres
+  #   restart: unless-stopped
+  #   networks:
+  #     - selfnet
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '0.60'
+  #         memory: 1G
